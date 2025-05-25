@@ -1,21 +1,58 @@
-version: '3.9'
+version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16
-    container_name: campusparty-postgres
+  # API Gateway
+  api-gateway:
+    build: ./src/ApiGateway
+    ports:
+      - "8000:80"
+    depends_on:
+      - auth-service
+      - campuseros-service
+
+  # Auth Service
+  auth-service:
+    build: ./src/ServiceAuth
+    ports:
+      - "3000:80"
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpass
+      - ConnectionStrings__DefaultConnection=Server=auth-db;Port=5432;Database=auth_db;User Id=postgres;Password=postgres;
+      - Jwt__Key=your_jwt_secret_key
+      - Jwt__Issuer=http://api-gateway
+      - Jwt__Audience=http://api-gateway
+    depends_on:
+      - auth-db
+
+  auth-db:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+
+  # Campuseros Service
+  campuseros-service:
+    build: ./src/ServiceCampusero
+    ports:
+      - "3001:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=campuseros-db;Port=5432;Database=campuseros_db;User Id=postgres;Password=postgres;
+    depends_on:
+      - campuseros-db
+
+  campuseros-db:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=campuseros_db
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d
-    networks:
-      - campus-network
+      - campuseros-db-data:/var/lib/postgresql/data
 
 volumes:
-  pgdata:
-
-networks:
+  auth-db-data:
+  campuseros-db-data:
